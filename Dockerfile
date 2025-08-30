@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copiar arquivos de dependências
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
