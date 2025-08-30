@@ -41,10 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     // Simulação de autenticação
     // Em produção, isso seria substituído pela integração com Supabase
-    if (email === 'admin@example.com' && password === 'admin123') {
+    
+    // Credenciais admin configuráveis via variáveis de ambiente
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@example.com';
+    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+    
+    if (email === adminEmail && password === adminPassword) {
       const adminUser: User = {
         id: '1',
-        email: 'admin@example.com',
+        email: adminEmail,
         role: 'admin',
         created_at: new Date().toISOString(),
       };

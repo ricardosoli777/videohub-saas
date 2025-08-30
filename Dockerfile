@@ -9,6 +9,16 @@ RUN npm ci --only=production
 # Copiar código fonte
 COPY . .
 
+# Argumentos de build para variáveis de ambiente
+ARG VITE_ADMIN_EMAIL
+ARG VITE_ADMIN_PASSWORD
+ARG DOMAIN_NAME
+
+# Definir variáveis de ambiente para o build
+ENV VITE_ADMIN_EMAIL=$VITE_ADMIN_EMAIL
+ENV VITE_ADMIN_PASSWORD=$VITE_ADMIN_PASSWORD
+ENV VITE_DOMAIN_NAME=$DOMAIN_NAME
+
 # Build da aplicação
 RUN npm run build
 

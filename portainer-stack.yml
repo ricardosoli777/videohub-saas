@@ -3,8 +3,12 @@ version: '3.8'
 services:
   videohub:
     build: 
-      context: https://github.com/SEU-USUARIO/videohub.git
+      context: https://github.com/ricardosoli777/videohub-saas.git
       dockerfile: Dockerfile
+      args:
+        - VITE_ADMIN_EMAIL=${ADMIN_EMAIL}
+        - VITE_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+        - DOMAIN_NAME=${VIDEOHUB_DOMAIN}
     container_name: videohub-app
     environment:
       - DOMAIN_NAME=${VIDEOHUB_DOMAIN}
