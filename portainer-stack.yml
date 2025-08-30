@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  videohub:
+    build: 
+      context: https://github.com/SEU-USUARIO/videohub.git
+      dockerfile: Dockerfile
+    container_name: videohub-app
+    environment:
+      - DOMAIN_NAME=${VIDEOHUB_DOMAIN}
+    labels:
+      # Traefik labels para roteamento automático
+      - "traefik.enable=true"
+      - "traefik.http.routers.videohub.rule=Host(`${VIDEOHUB_DOMAIN}`)"
+      - "traefik.http.routers.videohub.entrypoints=websecure"
+      - "traefik.http.routers.videohub.tls.certresolver=letsencrypt"
+      - "traefik.http.services.videohub.loadbalancer.server.port=80"
+      # Middleware para HTTPS redirect
+      - "traefik.http.middlewares.videohub-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.videohub-redirect.redirectscheme.permanent=true"
+      - "traefik.http.routers.videohub-insecure.rule=Host(`${VIDEOHUB_DOMAIN}`)"
+      - "traefik.http.routers.videohub-insecure.entrypoints=web"
+      - "traefik.http.routers.videohub-insecure.middlewares=videohub-redirect"
+    networks:
+      - traefik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  traefik:
+    external: true

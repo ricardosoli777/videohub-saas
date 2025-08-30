@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  videohub:
+    build: .
+    container_name: videohub-app
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+    labels:
+      # Traefik labels para roteamento automático
+      - "traefik.enable=true"
+      - "traefik.http.routers.videohub.rule=Host(`${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.videohub.entrypoints=websecure"
+      - "traefik.http.routers.videohub.tls.certresolver=letsencrypt"
+      - "traefik.http.services.videohub.loadbalancer.server.port=80"
+      # Middleware para HTTPS redirect
+      - "traefik.http.middlewares.videohub-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.videohub-redirect.redirectscheme.permanent=true"
+      - "traefik.http.routers.videohub-insecure.rule=Host(`${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.videohub-insecure.entrypoints=web"
+      - "traefik.http.routers.videohub-insecure.middlewares=videohub-redirect"
+    networks:
+      - traefik-network
+    restart: unless-stopped
+
+  # Traefik reverse proxy
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      # API e Dashboard
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Providers
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-network"
+      # Certificados SSL automáticos
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      # Logs
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Dashboard do Traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+    labels:
+      # Dashboard do Traefik
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      # Autenticação básica para o dashboard
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_USERS:-admin:$$2y$$10$$8K8TGFhQNmPYq8RQGv5HJOoP5b4b2J3xKj9mWoO2KpY8tFjJrQgXG}"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+    networks:
+      - traefik-network
+    restart: unless-stopped
+
+  # Portainer para gerenciamento de containers
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+    networks:
+      - traefik-network
+    restart: unless-stopped
+
+networks:
+  traefik-network:
+    external: true
+
+volumes:
+  traefik-letsencrypt:
+    driver: local
+  portainer-data:
+    driver: local

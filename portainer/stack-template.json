@@ -1,0 +1,38 @@
+{
+  "version": "2",
+  "templates": [
+    {
+      "type": 3,
+      "title": "VideoHub SaaS",
+      "description": "Plataforma SaaS para embedding de vídeos com área de membros",
+      "note": "Deploy completo do VideoHub com Traefik e SSL automático",
+      "categories": ["SaaS", "Video", "Education"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/portainer/templates/master/Images/nginx-icon.png",
+      "repository": {
+        "url": "https://github.com/seu-usuario/videohub-saas",
+        "stackfile": "portainer/docker-compose.portainer.yml"
+      },
+      "env": [
+        {
+          "name": "DOMAIN_NAME",
+          "label": "Nome do Domínio",
+          "description": "Seu domínio (ex: videohub.exemplo.com)",
+          "default": "localhost"
+        },
+        {
+          "name": "ACME_EMAIL",
+          "label": "Email para SSL",
+          "description": "Email para certificados Let's Encrypt",
+          "default": "admin@example.com"
+        },
+        {
+          "name": "TRAEFIK_USERS",
+          "label": "Usuários Traefik",
+          "description": "Usuários para dashboard Traefik (formato: user:hash)",
+          "default": "admin:$2y$10$8K8TGFhQNmPYq8RQGv5HJOoP5b4b2J3xKj9mWoO2KpY8tFjJrQgXG"
+        }
+      ]
+    }
+  ]
+}
