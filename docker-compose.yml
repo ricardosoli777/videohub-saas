@@ -2,7 +2,12 @@ version: '3.8'
 
 services:
   videohub:
-    build: .
+    build:
+      context: .
+      args:
+        - VITE_ADMIN_EMAIL=${VITE_ADMIN_EMAIL:-admin@example.com}
+        - VITE_ADMIN_PASSWORD=${VITE_ADMIN_PASSWORD:-admin123}
+        - VITE_DOMAIN_NAME=${DOMAIN_NAME:-localhost}
     container_name: videohub-app
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
