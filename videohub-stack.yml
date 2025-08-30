@@ -5,13 +5,7 @@ services:
 ## --------------------------- VIDEOHUB SAAS APP --------------------------- ##
 
   videohub:
-    build: 
-      context: https://github.com/ricardosoli777/videohub-saas.git
-      dockerfile: Dockerfile
-      args:
-        - VITE_ADMIN_EMAIL=${ADMIN_EMAIL:-admin@videohub.com}
-        - VITE_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
-        - VITE_DOMAIN_NAME=${VIDEOHUB_DOMAIN:-videohub.groof.com.br}
+    image: ricardosoli777/videohub-saas:latest
 
     networks:
       - GroofNet ## Nome da rede interna
