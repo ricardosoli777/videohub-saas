@@ -3,9 +3,32 @@ import React from 'react';
 interface VideoEmbedProps {
   url: string;
   title: string;
+  embedCode?: string;
+  embedWidth?: string;
+  embedHeight?: string;
 }
 
-export default function VideoEmbed({ url, title }: VideoEmbedProps) {
+export default function VideoEmbed({ url, title, embedCode, embedWidth = '100%', embedHeight = '400px' }: VideoEmbedProps) {
+  // Se há código embed personalizado, usar ele
+  if (embedCode && embedCode.trim()) {
+    // Aplicar dimensões personalizadas no container
+    const containerStyle = {
+      width: embedWidth,
+      height: embedHeight,
+      minHeight: embedHeight
+    };
+
+    return (
+      <div className="relative" style={containerStyle}>
+        <div 
+          className="video-embed-container"
+          style={{ width: '100%', height: '100%' }}
+          dangerouslySetInnerHTML={{ __html: embedCode }}
+        />
+      </div>
+    );
+  }
+
   const getEmbedUrl = (url: string) => {
     // YouTube
     const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/;
@@ -28,6 +51,11 @@ export default function VideoEmbed({ url, title }: VideoEmbedProps) {
       return `https://www.dailymotion.com/embed/video/${dailymotionMatch[1]}`;
     }
 
+    // Verificar se já é uma URL de embed ou iframe
+    if (url.includes('embed') || url.includes('player')) {
+      return url;
+    }
+
     return url;
   };
 
@@ -38,7 +66,7 @@ export default function VideoEmbed({ url, title }: VideoEmbedProps) {
         title={title}
         className="w-full h-full rounded-lg"
         frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; microphone"
         allowFullScreen
       />
     </div>

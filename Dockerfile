@@ -22,19 +22,29 @@ ENV VITE_DOMAIN_NAME=$VITE_DOMAIN_NAME
 # Build da aplicação
 RUN npm run build
 
-# Estágio de produção
-FROM nginx:alpine
+# Instalar dependências do server
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm ci --only=production
 
-# Instalar envsubst para substituição de variáveis
-RUN apk add --no-cache gettext
+# Voltar para o diretório principal
+WORKDIR /app
 
-# Copiar build da aplicação
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Estágio de produção - Node.js
+FROM node:22-alpine
 
-# Copiar configuração do nginx
-COPY nginx.conf.template /etc/nginx/nginx.conf.template
+WORKDIR /app
 
-# Script de inicialização
+# Instalar dependências de sistema
+RUN apk add --no-cache curl wget
+
+# Copiar build do frontend
+COPY --from=builder /app/dist ./dist
+
+# Copiar servidor Node.js
+COPY --from=builder /app/server ./server
+
+# Copiar arquivos de configuração
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
@@ -42,9 +52,9 @@ RUN chmod +x /docker-entrypoint.sh
 ARG VITE_DOMAIN_NAME
 ENV DOMAIN_NAME=$VITE_DOMAIN_NAME
 
-# Expor porta
-EXPOSE 80
+# Expor porta do servidor Node.js
+EXPOSE 3001
 
 # Comando de inicialização
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server/server.js"]

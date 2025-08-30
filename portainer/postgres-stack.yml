@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: videohub-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-videohub}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}  
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres123}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - traefik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-videohub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=false"
+
+  # Inicializador do banco (executa uma vez e para)
+  postgres-init:
+    image: postgres:15-alpine
+    container_name: videohub-postgres-init
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD:-postgres123}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - traefik
+    restart: "no"
+    command: |
+      sh -c "
+        echo '🚀 Iniciando configuração do banco VideoHub...'
+        
+        # Aguardar PostgreSQL estar totalmente pronto
+        sleep 10
+        
+        # Conectar e executar setup
+        psql -h postgres -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-videohub} -c '
+        -- Extensões necessárias
+        CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";
+        CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";
+        
+        -- Tabela de usuários
+        CREATE TABLE IF NOT EXISTS users (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            role VARCHAR(20) DEFAULT \"member\" CHECK (role IN (\"admin\", \"member\")),
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        -- Tabela de vídeos
+        CREATE TABLE IF NOT EXISTS videos (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            url VARCHAR(500) NOT NULL,
+            thumbnail VARCHAR(500),
+            duration INTEGER,
+            expiry_date TIMESTAMP WITH TIME ZONE,
+            is_active BOOLEAN DEFAULT true,
+            views_count INTEGER DEFAULT 0,
+            created_by UUID REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        -- Tabela de sessões
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+            session_token VARCHAR(255) UNIQUE NOT NULL,
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        -- Tabela de analytics
+        CREATE TABLE IF NOT EXISTS video_views (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            video_id UUID REFERENCES videos(id) ON DELETE CASCADE,
+            user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            ip_address INET,
+            user_agent TEXT,
+            watch_duration INTEGER,
+            viewed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        
+        -- Índices
+        CREATE INDEX IF NOT EXISTS idx_videos_active ON videos(is_active);
+        CREATE INDEX IF NOT EXISTS idx_videos_expiry ON videos(expiry_date);
+        CREATE INDEX IF NOT EXISTS idx_videos_created_by ON videos(created_by);
+        CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+        CREATE INDEX IF NOT EXISTS idx_video_views_video_id ON video_views(video_id);
+        
+        -- Função para updated_at
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS \$\$
+        BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+        END;
+        \$\$ language \"plpgsql\";
+        
+        -- Triggers
+        DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+        DROP TRIGGER IF EXISTS update_videos_updated_at ON videos;
+        CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        CREATE TRIGGER update_videos_updated_at BEFORE UPDATE ON videos FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        '
+        
+        # Inserir dados demo
+        psql -h postgres -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-videohub} -c '
+        -- Inserir usuários demo
+        INSERT INTO users (email, password_hash, role) 
+        VALUES (
+            \"admin@example.com\", 
+            crypt(\"admin123\", gen_salt(\"bf\")), 
+            \"admin\"
+        ) ON CONFLICT (email) DO NOTHING;
+        
+        INSERT INTO users (email, password_hash, role) 
+        VALUES (
+            \"user@example.com\", 
+            crypt(\"user123\", gen_salt(\"bf\")), 
+            \"member\"
+        ) ON CONFLICT (email) DO NOTHING;
+        
+        -- Inserir vídeos demo
+        WITH admin_user AS (SELECT id FROM users WHERE email = \"admin@example.com\" LIMIT 1)
+        INSERT INTO videos (title, description, url, thumbnail, duration, expiry_date, created_by)
+        SELECT 
+            \"Introdução ao React\",
+            \"Aprenda os conceitos básicos do React\",
+            \"https://www.youtube.com/watch?v=w7ejDZ8SWv8\",
+            \"https://images.pexels.com/photos/270404/pexels-photo-270404.jpeg?auto=compress&cs=tinysrgb&w=300\",
+            1800,
+            NOW() + INTERVAL \"7 days\",
+            admin_user.id
+        FROM admin_user
+        WHERE NOT EXISTS (SELECT 1 FROM videos WHERE title = \"Introdução ao React\");
+        
+        WITH admin_user AS (SELECT id FROM users WHERE email = \"admin@example.com\" LIMIT 1)
+        INSERT INTO videos (title, description, url, thumbnail, duration, created_by)
+        SELECT 
+            \"Docker para Iniciantes\",
+            \"Containerização com Docker\",
+            \"https://www.youtube.com/watch?v=fqMOX6JJhGo\",
+            \"https://images.pexels.com/photos/574071/pexels-photo-574071.jpeg?auto=compress&cs=tinysrgb&w=300\",
+            2400,
+            admin_user.id
+        FROM admin_user
+        WHERE NOT EXISTS (SELECT 1 FROM videos WHERE title = \"Docker para Iniciantes\");
+        '
+        
+        echo '✅ Banco VideoHub configurado com sucesso!'
+        echo '📊 Tabelas criadas: users, videos, user_sessions, video_views'
+        echo '👤 Usuários demo: admin@example.com/admin123, user@example.com/user123'
+        echo '🎬 Vídeos demo inseridos'
+      "
+
+volumes:
+  postgres-data:
+    driver: local
+  postgres-init:
+    driver: local
+
+networks:
+  traefik:
+    external: true

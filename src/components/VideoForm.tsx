@@ -13,6 +13,9 @@ export default function VideoForm({ video, onClose }: VideoFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [url, setUrl] = useState('');
+  const [embedCode, setEmbedCode] = useState('');
+  const [embedWidth, setEmbedWidth] = useState('100%');
+  const [embedHeight, setEmbedHeight] = useState('400px');
   const [thumbnail, setThumbnail] = useState('');
   const [duration, setDuration] = useState(0);
   const [expiryDate, setExpiryDate] = useState('');
@@ -27,6 +30,9 @@ export default function VideoForm({ video, onClose }: VideoFormProps) {
       setTitle(video.title);
       setDescription(video.description);
       setUrl(video.url);
+      setEmbedCode(video.embed_code || '');
+      setEmbedWidth(video.embed_width || '100%');
+      setEmbedHeight(video.embed_height || '400px');
       setThumbnail(video.thumbnail);
       setDuration(video.duration);
       setExpiryDate(video.expiry_date ? video.expiry_date.split('T')[0] : '');
@@ -42,6 +48,9 @@ export default function VideoForm({ video, onClose }: VideoFormProps) {
       title,
       description,
       url,
+      embed_code: embedCode,
+      embed_width: embedWidth,
+      embed_height: embedHeight,
       thumbnail: thumbnail || 'https://images.pexels.com/photos/270404/pexels-photo-270404.jpeg?auto=compress&cs=tinysrgb&w=300',
       duration,
       expiry_date: expiryDate || undefined,
@@ -125,6 +134,85 @@ export default function VideoForm({ video, onClose }: VideoFormProps) {
           placeholder="Descrição do vídeo..."
         />
       </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          <LinkIcon className="inline h-4 w-4 mr-2" />
+          Código Embed (iframe) - Opcional
+        </label>
+        <textarea
+          value={embedCode}
+          onChange={(e) => setEmbedCode(e.target.value)}
+          rows={6}
+          className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none font-mono text-sm"
+          placeholder={`<iframe
+  src="https://dify.groof.com.br/chatbot/GEGTcviRrWoxjhwk"
+  style="width: 100%; height: 100%; min-height: 700px"
+  frameborder="0"
+  allow="microphone">
+</iframe>`}
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Se fornecido, será usado em vez da URL. Suporta iframes de qualquer plataforma.
+        </p>
+      </div>
+
+      {embedCode && embedCode.trim() && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <div>
+            <label className="block text-sm font-medium text-blue-300 mb-2">
+              Largura do Embed
+            </label>
+            <select
+              value={embedWidth}
+              onChange={(e) => setEmbedWidth(e.target.value)}
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option value="100%">100% (Tela cheia)</option>
+              <option value="90%">90%</option>
+              <option value="80%">80%</option>
+              <option value="70%">70%</option>
+              <option value="1200px">1200px</option>
+              <option value="1000px">1000px</option>
+              <option value="800px">800px</option>
+              <option value="600px">600px</option>
+            </select>
+            <input
+              type="text"
+              value={embedWidth}
+              onChange={(e) => setEmbedWidth(e.target.value)}
+              placeholder="Ex: 100%, 800px, 50vw"
+              className="w-full mt-2 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-blue-300 mb-2">
+              Altura do Embed
+            </label>
+            <select
+              value={embedHeight}
+              onChange={(e) => setEmbedHeight(e.target.value)}
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option value="300px">300px (Baixo)</option>
+              <option value="400px">400px (Padrão)</option>
+              <option value="500px">500px</option>
+              <option value="600px">600px</option>
+              <option value="700px">700px (Chatbots)</option>
+              <option value="800px">800px</option>
+              <option value="100vh">100vh (Tela cheia)</option>
+            </select>
+            <input
+              type="text"
+              value={embedHeight}
+              onChange={(e) => setEmbedHeight(e.target.value)}
+              placeholder="Ex: 400px, 100vh, 50%"
+              className="w-full mt-2 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>

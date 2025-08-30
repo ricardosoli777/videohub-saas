@@ -5,6 +5,9 @@ export interface Video {
   title: string;
   description: string;
   url: string;
+  embed_code?: string;
+  embed_width?: string;
+  embed_height?: string;
   thumbnail: string;
   duration: number;
   expiry_date?: string;
@@ -70,6 +73,24 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
         thumbnail: 'https://images.pexels.com/photos/11035380/pexels-photo-11035380.jpeg?auto=compress&cs=tinysrgb&w=300',
         duration: 3600,
         expiry_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        is_active: true,
+        created_at: new Date().toISOString(),
+        created_by: '1',
+      },
+      {
+        id: '4',
+        title: 'Dify Chatbot Demo',
+        description: 'Exemplo de integração com iframe personalizado usando Dify',
+        url: 'https://dify.groof.com.br/chatbot/GEGTcviRrWoxjhwk',
+        embed_code: `<iframe
+  src="https://dify.groof.com.br/chatbot/GEGTcviRrWoxjhwk"
+  frameborder="0"
+  allow="microphone">
+</iframe>`,
+        embed_width: '100%',
+        embed_height: '700px',
+        thumbnail: 'https://images.pexels.com/photos/8386440/pexels-photo-8386440.jpeg?auto=compress&cs=tinysrgb&w=300',
+        duration: 0,
         is_active: true,
         created_at: new Date().toISOString(),
         created_by: '1',

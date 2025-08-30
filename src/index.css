@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Estilos para embeds personalizados */
+.video-embed-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 0.5rem;
+}
+
+.video-embed-container iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none;
+  border-radius: 0.5rem;
+}
+
+/* Reset para garantir que o embed respeite as dimensões definidas */
+.video-embed-container * {
+  box-sizing: border-box;
+}

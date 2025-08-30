@@ -56,7 +56,13 @@ export default function VideoModal({ video, isOpen, onClose, isEdit = false }: V
               <VideoForm video={video} onClose={onClose} />
             ) : (
               <div className="space-y-6">
-                <VideoEmbed url={video.url} title={video.title} />
+                <VideoEmbed 
+                  url={video.url} 
+                  title={video.title} 
+                  embedCode={video.embed_code}
+                  embedWidth={video.embed_width}
+                  embedHeight={video.embed_height}
+                />
                 <div>
                   <h3 className="text-xl font-semibold text-white mb-3">{video.title}</h3>
                   <p className="text-gray-300 leading-relaxed">{video.description}</p>

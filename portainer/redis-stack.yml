@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: videohub-redis
+    command: |
+      sh -c "
+        # Criar configuração Redis personalizada
+        echo '# VideoHub Redis Configuration' > /tmp/redis.conf
+        echo 'appendonly yes' >> /tmp/redis.conf
+        echo 'appendfsync everysec' >> /tmp/redis.conf
+        echo 'requirepass ${REDIS_PASSWORD:-redis123}' >> /tmp/redis.conf
+        echo 'maxmemory 256mb' >> /tmp/redis.conf
+        echo 'maxmemory-policy allkeys-lru' >> /tmp/redis.conf
+        echo 'save 900 1' >> /tmp/redis.conf
+        echo 'save 300 10' >> /tmp/redis.conf
+        echo 'save 60 10000' >> /tmp/redis.conf
+        echo 'tcp-keepalive 300' >> /tmp/redis.conf
+        echo 'timeout 0' >> /tmp/redis.conf
+        
+        # Inicializar Redis com configurações
+        redis-server /tmp/redis.conf
+      "
+    volumes:
+      - redis-data:/data
+      - redis-config:/usr/local/etc/redis
+    ports:
+      - "6379:6379"
+    networks:
+      - traefik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=false"
+
+  # Redis Commander - Interface web para Redis
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: videohub-redis-commander
+    environment:
+      - REDIS_HOSTS=local:videohub-redis:6379:0:${REDIS_PASSWORD:-redis123}
+      - HTTP_USER=${REDIS_ADMIN_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_ADMIN_PASSWORD:-admin123}
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redis-commander.rule=Host(`redis.${VIDEOHUB_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.redis-commander.entrypoints=websecure"
+      - "traefik.http.routers.redis-commander.tls.certresolver=letsencrypt"
+      - "traefik.http.services.redis-commander.loadbalancer.server.port=8081"
+      # Middleware de autenticação
+      - "traefik.http.middlewares.redis-auth.basicauth.users=${TRAEFIK_USERS:-admin:$$2y$$10$$8K8TGFhQNmPYq8RQGv5HJOoP5b4b2J3xKj9mWoO2KpY8tFjJrQgXG}"
+      - "traefik.http.routers.redis-commander.middlewares=redis-auth"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Inicializador Redis (configura dados iniciais)
+  redis-init:
+    image: redis:7-alpine
+    container_name: videohub-redis-init
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - traefik
+    restart: "no"
+    command: |
+      sh -c "
+        echo '🚀 Configurando Redis para VideoHub...'
+        
+        # Aguardar Redis estar pronto
+        sleep 5
+        
+        # Configurar dados iniciais
+        redis-cli -h videohub-redis -a '${REDIS_PASSWORD:-redis123}' --no-auth-warning << 'REDIS_COMMANDS'
+        
+        # Configurar namespaces
+        SET videohub:config:version '1.0.0'
+        SET videohub:config:initialized '1'
+        
+        # Cache de configurações padrão
+        HSET videohub:settings max_video_duration 3600
+        HSET videohub:settings max_file_size 500000000
+        HSET videohub:settings allowed_formats 'mp4,mov,avi,mkv'
+        HSET videohub:settings session_timeout 86400
+        
+        # Configurar expiração de sessões (24 horas)
+        SET videohub:session:default_ttl 86400
+        
+        # Contador de usuários online
+        SET videohub:stats:users_online 0
+        
+        # Cache de vídeos populares (vazio inicialmente)
+        DEL videohub:cache:popular_videos
+        
+        REDIS_COMMANDS
+        
+        echo '✅ Redis configurado com sucesso!'
+        echo '💾 Dados iniciais carregados'
+        echo '⚡ Cache preparado para o VideoHub'
+        echo '🔗 Acesse Redis Commander: http://localhost:8081 ou https://redis.seudominio.com'
+      "
+
+volumes:
+  redis-data:
+    driver: local
+  redis-config:
+    driver: local
+
+networks:
+  traefik:
+    external: true

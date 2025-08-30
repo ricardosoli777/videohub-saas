@@ -1,0 +1,79 @@
+version: "3.7"
+
+services:
+
+## --------------------------- VIDEOHUB SAAS APP --------------------------- ##
+
+  videohub:
+    build: 
+      context: https://github.com/ricardosoli777/videohub-saas.git
+      dockerfile: Dockerfile
+      args:
+        - VITE_ADMIN_EMAIL=${ADMIN_EMAIL:-admin@videohub.com}
+        - VITE_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+        - VITE_DOMAIN_NAME=${VIDEOHUB_DOMAIN:-videohub.groof.com.br}
+
+    networks:
+      - GroofNet ## Nome da rede interna
+    
+    environment:
+      ## Conexões com bancos (usando os serviços já existentes na rede GroofNet)
+      - DATABASE_URL=postgresql://postgres:eaa275260a5fa9acdf85bc88ae94e807@postgres:5432/videohub
+      - REDIS_URL=redis://redis:6379/0
+      
+      ## Configurações da aplicação
+      - DOMAIN_NAME=${VIDEOHUB_DOMAIN:-videohub.groof.com.br}
+      - NODE_ENV=production
+      - TZ=America/Sao_Paulo
+      
+      ## Configurações de admin (do build)
+      - VITE_ADMIN_EMAIL=${ADMIN_EMAIL:-admin@videohub.com}
+      - VITE_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+    
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      labels:
+        ## Traefik para roteamento
+        - traefik.enable=true
+        - traefik.http.routers.videohub.rule=Host(`${VIDEOHUB_DOMAIN:-videohub.groof.com.br}`)
+        - traefik.http.services.videohub.loadbalancer.server.port=3001
+        - traefik.http.routers.videohub.service=videohub
+        - traefik.http.routers.videohub.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.videohub.entrypoints=websecure
+        - traefik.http.routers.videohub.tls=true
+        
+        ## Middleware para HTTPS redirect
+        - traefik.http.middlewares.videohub-redirect.redirectscheme.scheme=https
+        - traefik.http.middlewares.videohub-redirect.redirectscheme.permanent=true
+        - traefik.http.routers.videohub-insecure.rule=Host(`${VIDEOHUB_DOMAIN:-videohub.groof.com.br}`)
+        - traefik.http.routers.videohub-insecure.entrypoints=web
+        - traefik.http.routers.videohub-insecure.middlewares=videohub-redirect
+    
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+## --------------------------- VIDEOHUB SAAS APP --------------------------- ##
+
+networks:
+  GroofNet: ## Nome da rede interna
+    name: GroofNet ## Nome da rede interna
+    external: true
